@@ -37,8 +37,8 @@ func migrate(db *sql.DB) (sql.Result, error) {
 		portfolio_id VARCHAR(36) NOT NULL,
 		skill_id VARCHAR(36) NOT NULL,
 		FOREIGN KEY (portfolio_id) REFERENCES portfolio(id),
-		FOREIGN KEY (skill_id) REFERENCES skills(id),
-		PRIMARY KEY (portfolio_id, skill_id)
+		FOREIGN KEY (skill_id) REFERENCES skills(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+		PRIMARY KEY (portfolio_id, skill_id) 
 	);
 	`)
 }

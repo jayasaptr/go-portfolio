@@ -34,6 +34,16 @@ func main() {
 	r.POST("/api/v1/auth/register", handler.RegisterAuth(db))
 	r.POST("/api/v1/auth/login", handler.LoginAuth(db, os.Getenv("JWT_SECRET")))
 	r.GET("/api/v1/user", handler.GetUserWithJWT(db, os.Getenv("JWT_SECRET")))
+	r.DELETE("/api/v1/user", handler.DeleteUser(db, os.Getenv("JWT_SECRET")))
+
+	//skills
+	r.POST("/api/v1/skills", handler.AddSkills(db, os.Getenv("JWT_SECRET")))
+	r.GET("/api/v1/skills", handler.GetSkill(db, os.Getenv("JWT_SECRET")))
+	r.DELETE("/api/v1/skills/:id", handler.DeleteSkill(db, os.Getenv("JWT_SECRET")))
+
+	//portfolio
+	r.POST("/api/v1/portfolio", handler.AddPortfolioWithSkills(db, os.Getenv("JWT_SECRET")))
+	r.GET("/api/v1/portfolio", handler.GetPortfolioAndSkillsPaginated(db, os.Getenv("JWT_SECRET")))
 
 	// Serve static files for images
 	r.Static("/uploads", "./uploads")

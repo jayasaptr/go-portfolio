@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"portfolio/model"
 	"strings"
@@ -53,7 +54,7 @@ func RegisterAuth(db *sql.DB) gin.HandlerFunc {
 
 		// Generate a new filename for the image
 		newFileName := uuid.New().String() + filepath.Ext(file.Filename)
-		if err := c.SaveUploadedFile(file, "uploads/"+newFileName); err != nil {
+		if err := c.SaveUploadedFile(file, "uploads/users/"+newFileName); err != nil {
 			log.Printf("Error saving file: %v", err)
 			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to save uploaded file"))
 			return
@@ -121,7 +122,7 @@ func LoginAuth(db *sql.DB, jwtKey string) gin.HandlerFunc {
 		if c.Request.TLS != nil {
 			scheme = "https"
 		}
-		user.Image = scheme + "://" + c.Request.Host + "/uploads/" + user.Image
+		user.Image = scheme + "://" + c.Request.Host + "/uploads/users/" + user.Image
 
 		//password omitempty
 		user.Password = ""
@@ -187,7 +188,7 @@ func GetUserWithJWT(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			if c.Request.TLS != nil {
 				scheme = "https"
 			}
-			user.Image = scheme + "://" + c.Request.Host + "/uploads/" + user.Image
+			user.Image = scheme + "://" + c.Request.Host + "/uploads/users/" + user.Image
 
 			// Omit token and password from the response
 			user.Token = nil
@@ -214,4 +215,91 @@ func generateJWT(userID, jwtKey string) (string, error) {
 	return tokenString, nil
 }
 
+func DeleteUser(db *sql.DB, jwtKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check if the user is logged in
+		authorizationHeader := c.GetHeader("Authorization")
+		if authorizationHeader == "" {
+			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Authorization header not provided"))
+			return
+		}
 
+		tokenString := strings.TrimPrefix(authorizationHeader, "Bearer ")
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Token not provided"))
+			return
+		}
+
+		_, err := ValidateToken(tokenString, jwtKey, db)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Invalid token"))
+			return
+		}
+
+		userIDToDelete := c.PostForm("user_id")
+		if userIDToDelete == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("User ID to delete is required"))
+			return
+		}
+
+		// Retrieve user to get the image path
+		user, err := model.GetUserID(db, userIDToDelete)
+		if err != nil {
+			log.Printf("Error retrieving user: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve user"))
+			return
+		}
+
+		// Delete the user from the database
+		if err := model.DeleteUser(db, userIDToDelete); err != nil {
+			log.Printf("Error deleting user from database: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to delete user"))
+			return
+		}
+
+		// Delete the user's image file
+		if user.Image != "" {
+			imagePath := "./uploads/users/" + user.Image
+			if err := os.Remove(imagePath); err != nil {
+				log.Printf("Error deleting image file: %v", err)
+				c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to delete user image"))
+				return
+			}
+		}
+
+		// Return success response
+		c.JSON(http.StatusOK, formatter.SuccessResponse("User deleted successfully"))
+
+	}
+}
+
+func ValidateToken(tokenString, jwtKey string, db *sql.DB) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Validate the token signing method
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(jwtKey), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		userID, ok := claims["userID"].(string)
+		if !ok {
+			return "", fmt.Errorf("userID claim is not a string")
+		}
+		// Retrieve the user from the database to check the token
+		user, err := model.GetUserID(db, userID)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve user: %v", err)
+		}
+		if user.Token != nil && *user.Token != tokenString {
+			return "", fmt.Errorf("token does not match user's token")
+		}
+		return userID, nil
+	}
+
+	return "", fmt.Errorf("invalid token")
+}
