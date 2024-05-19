@@ -8,7 +8,7 @@ import (
 type Skills struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 }
 
 func InsertSkills(db *sql.DB, skills Skills) error {

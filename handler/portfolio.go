@@ -130,8 +130,13 @@ func GetPortfolioAndSkillsPaginated(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve portfolios"))
 			return
 		}
+		// Include server URL in the image link
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
 
-		// Retrieve skills for each portfolio
+		// Retrieve skills for each portfolio and include image paths
 		for i, portfolio := range portfolios {
 			skills, err := model.GetSkillsByPortfolioID(db, portfolio.ID)
 			if err != nil {
@@ -139,7 +144,18 @@ func GetPortfolioAndSkillsPaginated(db *sql.DB, jwtKey string) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve skills for portfolio"))
 				return
 			}
+
+			// Append the server path to each skill's image
+			for j := range skills {
+				skills[j].Image = scheme + "://" + c.Request.Host + "/uploads/skills/" + skills[j].Image
+			}
+
 			portfolios[i].Skills = skills
+		}
+
+		// Append the server path to each portfolio's image
+		for i := range portfolios {
+			portfolios[i].Image = scheme + "://" + c.Request.Host + "/uploads/portfolio/" + portfolios[i].Image
 		}
 
 		// Return success response with portfolios and their skills

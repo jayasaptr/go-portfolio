@@ -94,7 +94,7 @@ func GetPortfoliosPaginated(db *sql.DB, offset int, limit int) ([]*Portfolio, er
 
 // GetSkillsByPortfolioID retrieves the skills associated with a given portfolio ID
 func GetSkillsByPortfolioID(db *sql.DB, portfolioID string) ([]Skills, error) {
-	query := `SELECT skills.id, skills.name FROM skills 
+	query := `SELECT skills.id, skills.name, skills.image FROM skills 
 	          INNER JOIN portfolio_skills ON skills.id = portfolio_skills.skill_id 
 	          WHERE portfolio_skills.portfolio_id = $1`
 	rows, err := db.Query(query, portfolioID)
@@ -107,7 +107,7 @@ func GetSkillsByPortfolioID(db *sql.DB, portfolioID string) ([]Skills, error) {
 	var skills []Skills
 	for rows.Next() {
 		var skill Skills
-		if err := rows.Scan(&skill.ID, &skill.Name); err != nil {
+		if err := rows.Scan(&skill.ID, &skill.Name, &skill.Image); err != nil {
 			log.Printf("Error scanning skill: %v", err)
 			return nil, err
 		}
