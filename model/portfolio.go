@@ -92,6 +92,98 @@ func GetPortfoliosPaginated(db *sql.DB, offset int, limit int) ([]*Portfolio, er
 	return portfolios, nil
 }
 
+// Function to delete a skill and its relations from the database
+func DeleteSkillAndPortfolioRelations(db *sql.DB, skillID string, portfolioID string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		return err
+	}
+
+	// Delete relations from portfolio_skills table for the given skill ID and portfolio ID
+	deleteRelationsQuery := `DELETE FROM portfolio_skills WHERE skill_id = $1 AND portfolio_id = $2`
+	if _, err := tx.Exec(deleteRelationsQuery, skillID, portfolioID); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting relations: %v", err)
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		return err
+	}
+	return nil
+}
+
+// Function to update a portfolio in the database
+func UpdatePortfolio(db *sql.DB, portfolio *Portfolio) error {
+	query := `UPDATE portfolio SET title = $2, image = $3, content = $4 WHERE id = $1`
+	_, err := db.Exec(query, portfolio.ID, portfolio.Title, portfolio.Image, portfolio.Content)
+	if err != nil {
+		log.Printf("Error updating portfolio: %v", err)
+		return err
+	}
+	return nil
+}
+
+// GetPortfolioByID retrieves a portfolio by its ID along with its associated skills
+func GetPortfolioByID(db *sql.DB, portfolioID string) (*Portfolio, error) {
+	portfolioQuery := `SELECT id, title, image, content FROM portfolio WHERE id = $1`
+	row := db.QueryRow(portfolioQuery, portfolioID)
+
+	var portfolio Portfolio
+	err := row.Scan(&portfolio.ID, &portfolio.Title, &portfolio.Image, &portfolio.Content)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("No portfolio found with ID: %v", portfolioID)
+			return nil, err
+		}
+		log.Printf("Error retrieving portfolio: %v", err)
+		return nil, err
+	}
+
+	// Retrieve associated skills
+	skills, err := GetSkillsByPortfolioID(db, portfolioID)
+	if err != nil {
+		log.Printf("Error retrieving skills for portfolio %s: %v", portfolioID, err)
+		return nil, err
+	}
+	portfolio.Skills = skills
+
+	return &portfolio, nil
+}
+
+// Function to delete a portfolio and its relations from the database without deleting the master skills
+func DeletePortfolioAndRelations(db *sql.DB, portfolioID string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		return err
+	}
+
+	// Delete relations from portfolio_skills table only, do not delete the skills themselves
+	deleteRelationsQuery := `DELETE FROM portfolio_skills WHERE portfolio_id = $1`
+	if _, err := tx.Exec(deleteRelationsQuery, portfolioID); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting portfolio-skill relations: %v", err)
+		return err
+	}
+
+	// Delete the portfolio from portfolio table
+	deletePortfolioQuery := `DELETE FROM portfolio WHERE id = $1`
+	if _, err := tx.Exec(deletePortfolioQuery, portfolioID); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting portfolio: %v", err)
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		return err
+	}
+	return nil
+}
+
 // GetSkillsByPortfolioID retrieves the skills associated with a given portfolio ID
 func GetSkillsByPortfolioID(db *sql.DB, portfolioID string) ([]Skills, error) {
 	query := `SELECT skills.id, skills.name, skills.image FROM skills 

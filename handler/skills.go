@@ -2,7 +2,9 @@ package handler
 
 import (
 	"database/sql"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -182,4 +184,108 @@ func DeleteSkill(db *sql.DB, jwtKey string) gin.HandlerFunc {
 		// Return success response
 		c.JSON(http.StatusOK, formatter.SuccessResponse("Skill deleted successfully"))
 	}
+}
+
+func UpdateSkill(db *sql.DB, jwtKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check user login
+		authorizationHeader := c.GetHeader("Authorization")
+		if authorizationHeader == "" {
+			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Authorization header not provided"))
+			return
+		}
+
+		tokenString := strings.TrimPrefix(authorizationHeader, "Bearer ")
+
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Token not provided"))
+			return
+		}
+
+		_, err := ValidateToken(tokenString, jwtKey, db)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Invalid token"))
+			return
+		}
+
+		skillIDToUpdate := c.Param("id")
+		if skillIDToUpdate == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Skill id required"))
+			return
+		}
+
+		// Retrieve existing skill to check for image update
+		existingSkill, err := model.GetSkillID(db, skillIDToUpdate)
+		if err != nil {
+			log.Printf("Error retrieving skill: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve skill"))
+			return
+		}
+
+		// Parse form data
+		if err := c.Request.ParseForm(); err != nil {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Error parsing form data"))
+			return
+		}
+
+		// Update skill name from form data
+		newSkillName := c.PostForm("name")
+		if newSkillName != "" {
+			existingSkill.Name = newSkillName
+		}
+
+		// Assume new image is uploaded with form key 'image'
+		file, header, err := c.Request.FormFile("image")
+		if err == nil {
+			defer file.Close()
+
+			// Generate new image filename and save
+			newImageName := uuid.New().String() + filepath.Ext(header.Filename)
+			newImagePath := "uploads/skills/" + newImageName
+			if err := saveUploadedFile(header, newImagePath); err != nil {
+				log.Printf("Error saving new image: %v", err)
+				c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to save new image"))
+				return
+			}
+
+			// Delete old image if new one is uploaded
+			if existingSkill.Image != "" {
+				oldImagePath := "./uploads/skills/" + existingSkill.Image
+				if err := os.Remove(oldImagePath); err != nil {
+					log.Printf("Error deleting old image file: %v", err)
+					c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to delete old image"))
+					// Continue to update the skill even if old image deletion fails
+				}
+			}
+
+			// Update skill record with new image name
+			existingSkill.Image = newImageName
+		}
+
+		// Update skill in database
+		if err := model.UpdateSkill(db, existingSkill); err != nil {
+			log.Printf("Error updating skill: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to update skill"))
+			return
+		}
+
+		c.JSON(http.StatusOK, formatter.SuccessResponse("Skill updated successfully"))
+	}
+}
+
+func saveUploadedFile(file *multipart.FileHeader, dst string) error {
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, src)
+	return err
 }

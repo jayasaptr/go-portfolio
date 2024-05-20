@@ -39,11 +39,17 @@ func main() {
 	//skills
 	r.POST("/api/v1/skills", handler.AddSkills(db, os.Getenv("JWT_SECRET")))
 	r.GET("/api/v1/skills", handler.GetSkill(db, os.Getenv("JWT_SECRET")))
+	r.PUT("/api/v1/skills/:id", handler.UpdateSkill(db, os.Getenv("JWT_SECRET")))
 	r.DELETE("/api/v1/skills/:id", handler.DeleteSkill(db, os.Getenv("JWT_SECRET")))
 
 	//portfolio
 	r.POST("/api/v1/portfolio", handler.AddPortfolioWithSkills(db, os.Getenv("JWT_SECRET")))
 	r.GET("/api/v1/portfolio", handler.GetPortfolioAndSkillsPaginated(db, os.Getenv("JWT_SECRET")))
+	r.DELETE("/api/v1/portfolio/:id", handler.DeletePortfolioHandler(db, os.Getenv("JWT_SECRET")))
+	r.PUT("/api/v1/portfolio/:id", handler.UpdatePortfolioHandler(db, os.Getenv("JWT_SECRET")))
+
+	r.PUT("/api/v1/portfolio-skill/:id", handler.AddSkillsToPortfolio(db, os.Getenv("JWT_SECRET")))
+	r.DELETE("/api/v1/portfolio-skill/:id", handler.DeleteSkillWithRelationsHandler(db, os.Getenv("JWT_SECRET")))
 
 	// Serve static files for images
 	r.Static("/uploads", "./uploads")

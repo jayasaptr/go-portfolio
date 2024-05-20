@@ -3,6 +3,7 @@ package model
 import (
 	"database/sql"
 	"errors"
+	"log"
 )
 
 type Skills struct {
@@ -13,6 +14,7 @@ type Skills struct {
 
 func InsertSkills(db *sql.DB, skills Skills) error {
 	if db == nil {
+		log.Println("Error: Database is nil")
 		return ErrDBNil
 	}
 
@@ -20,6 +22,7 @@ func InsertSkills(db *sql.DB, skills Skills) error {
 	_, err := db.Exec(query, skills.ID, skills.Name, skills.Image)
 
 	if err != nil {
+		log.Printf("Error inserting skills: %v", err)
 		return err
 	}
 
@@ -28,12 +31,14 @@ func InsertSkills(db *sql.DB, skills Skills) error {
 
 func GetListSkills(db *sql.DB, offset int, limit int) ([]Skills, error) {
 	if db == nil {
+		log.Println("Error: Database is nil")
 		return nil, ErrDBNil
 	}
 
 	query := `SELECT id, name, image FROM skills LIMIT $1 OFFSET $2`
 	rows, err := db.Query(query, limit, offset)
 	if err != nil {
+		log.Printf("Error querying skills: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -42,12 +47,14 @@ func GetListSkills(db *sql.DB, offset int, limit int) ([]Skills, error) {
 	for rows.Next() {
 		var skill Skills
 		if err := rows.Scan(&skill.ID, &skill.Name, &skill.Image); err != nil {
+			log.Printf("Error scanning skills: %v", err)
 			return nil, err
 		}
 		skillsList = append(skillsList, skill)
 	}
 
 	if err = rows.Err(); err != nil {
+		log.Printf("Error during rows iteration: %v", err)
 		return nil, err
 	}
 
@@ -56,6 +63,7 @@ func GetListSkills(db *sql.DB, offset int, limit int) ([]Skills, error) {
 
 func DeleteSkill(db *sql.DB, skillID string) error {
 	if db == nil {
+		log.Println("Error: Database is nil")
 		return ErrDBNil
 	}
 
@@ -63,6 +71,23 @@ func DeleteSkill(db *sql.DB, skillID string) error {
 	_, err := db.Exec(query, skillID)
 
 	if err != nil {
+		log.Printf("Error deleting skill: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func UpdateSkill(db *sql.DB, skill *Skills) error {
+	if db == nil {
+		log.Println("Error: Database is nil")
+		return ErrDBNil
+	}
+
+	query := `UPDATE skills SET name = $2, image = $3 WHERE id = $1`
+	_, err := db.Exec(query, skill.ID, skill.Name, skill.Image)
+	if err != nil {
+		log.Printf("Error updating skill: %v", err)
 		return err
 	}
 
@@ -71,6 +96,7 @@ func DeleteSkill(db *sql.DB, skillID string) error {
 
 func GetSkillID(db *sql.DB, skillID string) (*Skills, error) {
 	if db == nil {
+		log.Println("Error: Database is nil")
 		return nil, ErrDBNil
 	}
 
@@ -81,8 +107,10 @@ func GetSkillID(db *sql.DB, skillID string) (*Skills, error) {
 	err := row.Scan(&skill.ID, &skill.Name, &skill.Image)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.New("no user found")
+			log.Println("Error: No skill found")
+			return nil, errors.New("no skill found")
 		}
+		log.Printf("Error scanning skill: %v", err)
 		return nil, err
 	}
 
