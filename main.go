@@ -12,7 +12,14 @@ import (
 )
 
 func main() {
-	db, err := sql.Open("pgx", os.Getenv("DB_URI"))
+
+	connStr, err := loadPostgresConfig()
+	if err != nil {
+		fmt.Printf("Gagal membuat koneksi database %v\n", err)
+		os.Exit(1)
+	}
+	// db, err := sql.Open("pgx", os.Getenv("DB_URI"))
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		fmt.Printf("Gagal membuat koneksi database %v\n", err)
 		os.Exit(1)
@@ -63,4 +70,30 @@ func main() {
 		fmt.Printf("Gagal menjalankan server %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func loadPostgresConfig() (string, error) {
+	if os.Getenv("DB_HOST") == "" {
+		return "", fmt.Errorf("environment variable DB_HOST must be set")
+	}
+	if os.Getenv("DB_PORT") == "" {
+		return "", fmt.Errorf("environment variable DB_PORT must be set")
+	}
+	if os.Getenv("DB_USER") == "" {
+		return "", fmt.Errorf("environment variable DB_USER must be set")
+	}
+	if os.Getenv("DB_DATABASE") == "" {
+		return "", fmt.Errorf("environment variable DB_DATABASE must be set")
+	}
+	if os.Getenv("DB_PASSWORD") == "" {
+		return "", fmt.Errorf("environment variable DB_PASSWORD must be set")
+	}
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_DATABASE"),
+	)
+	return connStr, nil
 }
