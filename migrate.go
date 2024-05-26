@@ -29,8 +29,29 @@ func migrate(db *sql.DB) (sql.Result, error) {
 	CREATE TABLE IF NOT EXISTS portfolio (
 		id VARCHAR(36) PRIMARY KEY,
 		title VARCHAR(255) NOT NULL,
+		subtitle VARCHAR(255) NOT NULL,
 		image TEXT,
-		content TEXT
+		content TEXT,
+		status VARCHAR(255),
+		date_project DATE
+	);
+
+	CREATE TABLE IF NOT EXISTS experiance (
+		id VARCHAR(36) PRIMARY KEY,
+		company_name VARCHAR(255) NOT NULL,
+		position VARCHAR(255) NOT NULL,
+		image TEXT,
+		start_date DATE,
+		end_date DATE,
+		location VARCHAR(255)
+	);
+
+	CREATE TABLE IF NOT EXISTS experiance_skills (
+		experiance_id VARCHAR(36) NOT NULL,
+		skill_id VARCHAR(36) NOT NULL,
+		FOREIGN KEY (experiance_id) REFERENCES experiance(id),
+		FOREIGN KEY (skill_id) REFERENCES skills(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+		PRIMARY KEY (experiance_id, skill_id)
 	);
 
 	CREATE TABLE IF NOT EXISTS portfolio_skills (

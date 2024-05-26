@@ -9,9 +9,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Muat file .env
+    err := godotenv.Load()
+    if err != nil {
+        fmt.Printf("Error loading env file %v\n", err)
+		os.Exit(1)
+    }
 
 	connStr, err := loadPostgresConfig()
 	if err != nil {
@@ -54,6 +61,12 @@ func main() {
 	r.GET("/api/v1/portfolio", handler.GetPortfolioAndSkillsPaginated(db, os.Getenv("JWT_SECRET")))
 	r.DELETE("/api/v1/portfolio/:id", handler.DeletePortfolioHandler(db, os.Getenv("JWT_SECRET")))
 	r.PUT("/api/v1/portfolio/:id", handler.UpdatePortfolioHandler(db, os.Getenv("JWT_SECRET")))
+
+	//experience 
+	r.POST("/api/v1/experience", handler.AddExperiance(db, os.Getenv("JWT_SECRET")))
+	r.GET("/api/v1/experience", handler.GetExperience(db))
+	r.PUT("/api/v1/experience/:id", handler.UpdateExperience(db, os.Getenv("JWT_SECRET")))
+	r.DELETE("/api/v1/experience/:id", handler.DeleteExperience(db, os.Getenv("JWT_SECRET")))
 
 	r.PUT("/api/v1/portfolio-skill/:id", handler.AddSkillsToPortfolio(db, os.Getenv("JWT_SECRET")))
 	r.DELETE("/api/v1/portfolio-skill/:id", handler.DeleteSkillWithRelationsHandler(db, os.Getenv("JWT_SECRET")))

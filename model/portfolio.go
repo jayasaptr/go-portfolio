@@ -60,8 +60,9 @@ func InsertPortfolio(db *sql.DB, portfolio *Portfolio) error {
 	_, err := db.Exec(query, portfolio.ID, portfolio.Title, portfolio.Image, portfolio.Content)
 	if err != nil {
 		log.Printf("Error inserting portfolio: %v", err)
+		return err
 	}
-	return err
+	return nil
 }
 
 // Function to retrieve a portfolio along with its associated skills
