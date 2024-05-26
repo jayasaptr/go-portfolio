@@ -3,14 +3,18 @@ package model
 import (
 	"database/sql"
 	"log"
+	"time"
 )
 
 type Portfolio struct {
-	ID      string   `json:"id"`
-	Title   string   `json:"title"`
-	Image   string   `json:"image"`
-	Content string   `json:"content"`
-	Skills  []Skills `json:"skills"`
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Subtitle    string    `json:"subtitle"`
+	Image       string    `json:"image"`
+	Content     string    `json:"content"`
+	Status      string    `json:"status"`
+	DateProject time.Time `json:"date_project"`
+	Skills      []Skills  `json:"skills"`
 }
 
 type PortfolioSkill struct {
@@ -56,8 +60,8 @@ func (p *Portfolio) AddSkills(db *sql.DB, skillIDs []string) error {
 
 // Function to insert a new portfolio into the database
 func InsertPortfolio(db *sql.DB, portfolio *Portfolio) error {
-	query := `INSERT INTO portfolio (id, title, image, content) VALUES ($1, $2, $3, $4)`
-	_, err := db.Exec(query, portfolio.ID, portfolio.Title, portfolio.Image, portfolio.Content)
+	query := `INSERT INTO portfolio (id, title, subtitle, image, content, status, date_project) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := db.Exec(query, portfolio.ID, portfolio.Title, portfolio.Subtitle, portfolio.Image, portfolio.Content, portfolio.Status, portfolio.DateProject)
 	if err != nil {
 		log.Printf("Error inserting portfolio: %v", err)
 		return err
@@ -67,7 +71,7 @@ func InsertPortfolio(db *sql.DB, portfolio *Portfolio) error {
 
 // Function to retrieve a portfolio along with its associated skills
 func GetPortfoliosPaginated(db *sql.DB, offset int, limit int) ([]*Portfolio, error) {
-	query := `SELECT id, title, image, content FROM portfolio LIMIT $1 OFFSET $2`
+	query := `SELECT id, title, subtitle, image, content, status, date_project FROM portfolio LIMIT $1 OFFSET $2`
 	rows, err := db.Query(query, limit, offset)
 	if err != nil {
 		log.Printf("Error querying portfolios: %v", err)
@@ -78,7 +82,7 @@ func GetPortfoliosPaginated(db *sql.DB, offset int, limit int) ([]*Portfolio, er
 	var portfolios []*Portfolio
 	for rows.Next() {
 		var portfolio Portfolio
-		if err := rows.Scan(&portfolio.ID, &portfolio.Title, &portfolio.Image, &portfolio.Content); err != nil {
+		if err := rows.Scan(&portfolio.ID, &portfolio.Title, &portfolio.Subtitle, &portfolio.Image, &portfolio.Content, &portfolio.Status, &portfolio.DateProject); err != nil {
 			log.Printf("Error scanning portfolio: %v", err)
 			return nil, err
 		}
@@ -118,8 +122,8 @@ func DeleteSkillAndPortfolioRelations(db *sql.DB, skillID string, portfolioID st
 
 // Function to update a portfolio in the database
 func UpdatePortfolio(db *sql.DB, portfolio *Portfolio) error {
-	query := `UPDATE portfolio SET title = $2, image = $3, content = $4 WHERE id = $1`
-	_, err := db.Exec(query, portfolio.ID, portfolio.Title, portfolio.Image, portfolio.Content)
+	query := `UPDATE portfolio SET title = $2, subtitle = $3, image = $4, content = $5, status = $6, date_project = $7 WHERE id = $1`
+	_, err := db.Exec(query, portfolio.ID, portfolio.Title, portfolio.Subtitle, portfolio.Image, portfolio.Content, portfolio.Status, portfolio.DateProject)
 	if err != nil {
 		log.Printf("Error updating portfolio: %v", err)
 		return err
@@ -129,11 +133,11 @@ func UpdatePortfolio(db *sql.DB, portfolio *Portfolio) error {
 
 // GetPortfolioByID retrieves a portfolio by its ID along with its associated skills
 func GetPortfolioByID(db *sql.DB, portfolioID string) (*Portfolio, error) {
-	portfolioQuery := `SELECT id, title, image, content FROM portfolio WHERE id = $1`
+	portfolioQuery := `SELECT id, title, subtitle, image, content, status, date_project FROM portfolio WHERE id = $1`
 	row := db.QueryRow(portfolioQuery, portfolioID)
 
 	var portfolio Portfolio
-	err := row.Scan(&portfolio.ID, &portfolio.Title, &portfolio.Image, &portfolio.Content)
+	err := row.Scan(&portfolio.ID, &portfolio.Title, &portfolio.Subtitle, &portfolio.Image, &portfolio.Content, &portfolio.Status, &portfolio.DateProject)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("No portfolio found with ID: %v", portfolioID)

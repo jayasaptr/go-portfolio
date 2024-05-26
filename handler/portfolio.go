@@ -9,6 +9,7 @@ import (
 	"portfolio/model"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -58,12 +59,26 @@ func AddPortfolioWithSkills(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			return
 		}
 
+		status := c.PostForm("status")
+		dateProjectStr := c.PostForm("date_project")
+
+		//parse dateProject
+		dateProject, err := time.Parse("2006-01-02", dateProjectStr)
+
+		if err != nil {
+			log.Printf("Error parsing start date: %v\n", err)
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Invalid start date format, expected yyyy-mm-dd"))
+			return
+		}
+
 		// Create portfolio instance
 		portfolio := model.Portfolio{
-			ID:      portfolioID,
-			Title:   title,
-			Image:   newFilename,
-			Content: content,
+			ID:          portfolioID,
+			Title:       title,
+			Image:       newFilename,
+			Content:     content,
+			Status:      status,
+			DateProject: dateProject,
 		}
 
 		// Insert portfolio into database
@@ -98,27 +113,8 @@ func AddPortfolioWithSkills(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	}
 }
 
-func GetPortfolioAndSkillsPaginated(db *sql.DB, jwtKey string) gin.HandlerFunc {
+func GetPortfolioAndSkillsPaginated(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Check if the user is logged in
-		authorizationHeader := c.GetHeader("Authorization")
-		if authorizationHeader == "" {
-			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Authorization header not provided"))
-			return
-		}
-
-		tokenString := strings.TrimPrefix(authorizationHeader, "Bearer ")
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Token not provided"))
-			return
-		}
-
-		_, err := ValidateToken(tokenString, jwtKey, db)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Invalid token"))
-			return
-		}
-
 		// Pagination parameters
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -263,6 +259,11 @@ func UpdatePortfolioHandler(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			existingPortfolio.Title = title
 		}
 
+		subtitle := c.PostForm("subtitle")
+		if subtitle != "" && subtitle != existingPortfolio.Subtitle {
+			existingPortfolio.Subtitle = subtitle
+		}
+
 		content := c.PostForm("content")
 		if content != "" && content != existingPortfolio.Content {
 			existingPortfolio.Content = content
@@ -299,8 +300,26 @@ func UpdatePortfolioHandler(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			return
 		}
 
+		status := c.PostForm("status")
+		if status != "" && status != existingPortfolio.Status {
+			existingPortfolio.Status = status
+		}
+
+		dateProjectStr := c.PostForm("date_project")
+		if dateProjectStr != "" {
+			dateProject, err := time.Parse("2006-01-02", dateProjectStr)
+			if err != nil {
+				log.Printf("Error parsing start date: %v", err)
+				c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Invalid end date format"))
+				return
+			}
+			if dateProject != existingPortfolio.DateProject {
+				existingPortfolio.DateProject = dateProject
+			}
+		}
+
 		// Update the portfolio in the database only if changes were made
-		if title != "" || content != "" || file != nil {
+		if title != "" || subtitle != "" || content != "" || file != nil || status != "" || dateProjectStr != "" {
 			err = model.UpdatePortfolio(db, existingPortfolio)
 			if err != nil {
 				log.Printf("Error updating portfolio: %v", err)

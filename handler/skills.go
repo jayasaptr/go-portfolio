@@ -73,26 +73,8 @@ func AddSkills(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	}
 }
 
-func GetSkill(db *sql.DB, jwtKey string) gin.HandlerFunc {
+func GetSkill(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Validate JWT token
-		authorizationHeader := c.GetHeader("Authorization")
-		if authorizationHeader == "" {
-			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Authorization header not provided"))
-			return
-		}
-
-		tokenString := strings.TrimPrefix(authorizationHeader, "Bearer ")
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Token not provided"))
-			return
-		}
-
-		_, err := ValidateToken(tokenString, jwtKey, db)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, formatter.UnauthorizedResponse("Invalid token"))
-			return
-		}
 
 		// Parse pagination query parameters
 		limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))

@@ -14,11 +14,11 @@ import (
 
 func main() {
 	// Muat file .env
-    err := godotenv.Load()
-    if err != nil {
-        fmt.Printf("Error loading env file %v\n", err)
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Error loading env file %v\n", err)
 		os.Exit(1)
-    }
+	}
 
 	connStr, err := loadPostgresConfig()
 	if err != nil {
@@ -52,17 +52,17 @@ func main() {
 
 	//skills
 	r.POST("/api/v1/skills", handler.AddSkills(db, os.Getenv("JWT_SECRET")))
-	r.GET("/api/v1/skills", handler.GetSkill(db, os.Getenv("JWT_SECRET")))
+	r.GET("/api/v1/skills", handler.GetSkill(db))
 	r.PUT("/api/v1/skills/:id", handler.UpdateSkill(db, os.Getenv("JWT_SECRET")))
 	r.DELETE("/api/v1/skills/:id", handler.DeleteSkill(db, os.Getenv("JWT_SECRET")))
 
 	//portfolio
 	r.POST("/api/v1/portfolio", handler.AddPortfolioWithSkills(db, os.Getenv("JWT_SECRET")))
-	r.GET("/api/v1/portfolio", handler.GetPortfolioAndSkillsPaginated(db, os.Getenv("JWT_SECRET")))
+	r.GET("/api/v1/portfolio", handler.GetPortfolioAndSkillsPaginated(db))
 	r.DELETE("/api/v1/portfolio/:id", handler.DeletePortfolioHandler(db, os.Getenv("JWT_SECRET")))
 	r.PUT("/api/v1/portfolio/:id", handler.UpdatePortfolioHandler(db, os.Getenv("JWT_SECRET")))
 
-	//experience 
+	//experience
 	r.POST("/api/v1/experience", handler.AddExperiance(db, os.Getenv("JWT_SECRET")))
 	r.GET("/api/v1/experience", handler.GetExperience(db))
 	r.PUT("/api/v1/experience/:id", handler.UpdateExperience(db, os.Getenv("JWT_SECRET")))
