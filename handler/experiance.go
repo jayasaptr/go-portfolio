@@ -80,13 +80,13 @@ func AddExperiance(db *sql.DB, jwtKey string) gin.HandlerFunc {
 
 		// Create experience
 		experience := model.Experience{
-			ID: experienceID,
+			ID:          experienceID,
 			CompanyName: companyName,
-			Image: newFileName,
-			Position: position,
-			StartDate: startDate,
-			EndDate: endDate,
-			Location: location,
+			Image:       newFileName,
+			Position:    position,
+			StartDate:   startDate,
+			EndDate:     endDate,
+			Location:    location,
 		}
 
 		// Insert experience into the database
@@ -100,15 +100,66 @@ func AddExperiance(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			return
 		}
 
+		// Retrieve skill IDs from form data
+		skillIDs := c.PostFormArray("skill_ids")
+		if len(skillIDs) == 0 {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("At least one skill ID is required"))
+			return
+		}
+
+		// Add skills to the portfolio
+		if err := experience.AddSkills(db, skillIDs); err != nil {
+			log.Printf("Error adding skills to portfolio: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to add skills to portfolio"))
+			return
+		}
+
 		c.JSON(http.StatusCreated, formatter.SuccessResponse(map[string]interface{}{
-			"id": experience.ID,
+			"id":           experience.ID,
 			"company_name": experience.CompanyName,
-			"image": experience.Image,
-			"position": experience.Position,
-			"location": experience.Location,
-			"start_date": experience.StartDate,
-			"end_date": experience.EndDate,
+			"image":        experience.Image,
+			"position":     experience.Position,
+			"location":     experience.Location,
+			"start_date":   experience.StartDate,
+			"end_date":     experience.EndDate,
+			"skills":       skillIDs,
 		}))
+	}
+}
+
+func AddSkillsToExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !checkUserLogin(c, jwtKey, db) {
+			return
+		}
+
+		experienceID := c.Param("id")
+		if experienceID == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Experience ID is required"))
+			return
+		}
+
+		// Retrieve skill IDs from form input
+		skillIDs := c.PostFormArray("skill_ids")
+		if len(skillIDs) == 0 {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Skill IDs are required"))
+			return
+		}
+
+		experience, err := model.GetExperienceID(db, experienceID)
+		if err != nil {
+			log.Printf("Error retrieving portfolio: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve portfolio"))
+			return
+		}
+
+		if err := experience.AddSkills(db, skillIDs); err != nil {
+			log.Printf("Error adding skills to portfolio: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to add skills to portfolio"))
+			return
+		}
+
+		c.JSON(http.StatusOK, formatter.SuccessResponse("Skills successfully added to experience"))
 	}
 }
 
@@ -117,11 +168,11 @@ func GetExperience(db *sql.DB) gin.HandlerFunc {
 		//pagination parameters
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-		offset := (page-1) *limit
+		offset := (page - 1) * limit
 
 		//retrieve experience with pagination
 		experiences, err := model.GetExperience(db, offset, limit)
-		if  err != nil {
+		if err != nil {
 			log.Printf("Error retrieving experience: %v\n", err)
 			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve experiences"))
 			return
@@ -140,14 +191,14 @@ func GetExperience(db *sql.DB) gin.HandlerFunc {
 
 		//return success response
 		c.JSON(http.StatusOK, formatter.SuccessResponse(map[string]interface{}{
-			"experience" : experiences,
+			"experience": experiences,
 		}))
 	}
 }
 
 func UpdateExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !checkUserLogin(c, jwtKey, db){
+		if !checkUserLogin(c, jwtKey, db) {
 			return
 		}
 
@@ -172,7 +223,7 @@ func UpdateExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 
 		//update
 		companyName := c.PostForm("company_name")
-		if companyName != "" &&companyName != existingExperience.CompanyName {
+		if companyName != "" && companyName != existingExperience.CompanyName {
 			existingExperience.CompanyName = companyName
 		}
 
@@ -208,7 +259,7 @@ func UpdateExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 		}
 
 		position := c.PostForm("position")
-		if position != "" &&  position != existingExperience.Position{
+		if position != "" && position != existingExperience.Position {
 			existingExperience.Position = position
 		}
 
@@ -239,7 +290,7 @@ func UpdateExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 		}
 
 		location := c.PostForm("location")
-		if location != "" &&  location != existingExperience.Location{
+		if location != "" && location != existingExperience.Location {
 			existingExperience.Location = location
 		}
 
@@ -257,9 +308,9 @@ func UpdateExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	}
 }
 
-func DeleteExperience(db *sql.DB, jwtKey string) gin.HandlerFunc{
+func DeleteExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !checkUserLogin(c, jwtKey, db){
+		if !checkUserLogin(c, jwtKey, db) {
 			return
 		}
 
@@ -277,10 +328,16 @@ func DeleteExperience(db *sql.DB, jwtKey string) gin.HandlerFunc{
 			return
 		}
 
-		err = model.DeleteExperience(db, experienceID)
+		skillID := c.PostForm("skill_id")
+		if skillID == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Skill ID is required"))
+			return
+		}
+
+		err = model.DeleteExperienceAndRelations(db, experienceID)
 		if err != nil {
-			log.Printf("Error deleting experience : %v", err)
-			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to delete experience"))
+			log.Printf("Error deleting skill with relations: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to delete experience and its relations"))
 			return
 		}
 
@@ -296,5 +353,34 @@ func DeleteExperience(db *sql.DB, jwtKey string) gin.HandlerFunc{
 		}
 
 		c.JSON(http.StatusOK, formatter.SuccessResponse("Experience deleted successfully"))
+	}
+}
+
+func DeleteSkillExperienceWithRelationsHandler(db *sql.DB, jwtKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !checkUserLogin(c, jwtKey, db) {
+			return
+		}
+
+		experienceID := c.Param("id")
+		if experienceID == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Experience ID is required"))
+			return
+		}
+
+		skillID := c.PostForm("skill_id")
+		if skillID == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Skill ID is required"))
+			return
+		}
+
+		err := model.DeleteSkillAndExperienceRelations(db, skillID, experienceID)
+		if err != nil {
+			log.Printf("Error deleting skill with relations: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to delete skill from portfolio"))
+			return
+		}
+
+		c.JSON(http.StatusOK, formatter.SuccessResponse("Skill successfully deleted from portfolio"))
 	}
 }
