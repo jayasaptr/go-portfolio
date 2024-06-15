@@ -198,3 +198,31 @@ func DeleteExperienceAndRelations(db *sql.DB, portfolioID string) error {
 	}
 	return nil
 }
+
+func GetSkillByExperienceID(db *sql.DB, experienceID string) ([]Skills, error) {
+	query := `SELECT skills.id, skills.name, skills.image FROM skills INNER JOIN experiance_skills ON skills.id = experiance_skills.skill_id WHERE experiance_skills.experiance_id = $1`
+	rows, err := db.Query(query, experienceID)
+	if err != nil {
+		log.Printf("Error querying skill by experience id: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var skills []Skills
+	for rows.Next() {
+		var skill Skills
+		if err := rows.Scan(&skill.ID, &skill.Name, &skill.Image); err != nil {
+			log.Printf("Error scanning skill: %v", err)
+			return nil, err
+		}
+
+		skills = append(skills, skill)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Error during skill rows iteration: %v", err)
+		return nil, err
+	}
+
+	return skills, nil
+}

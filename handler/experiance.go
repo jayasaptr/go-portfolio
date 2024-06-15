@@ -189,6 +189,21 @@ func GetExperience(db *sql.DB) gin.HandlerFunc {
 			experiences[i].Image = scheme + "://" + c.Request.Host + "/uploads/experience/" + experiences[i].Image
 		}
 
+		for i, experience := range experiences {
+			skills, err := model.GetSkillByExperienceID(db, experience.ID)
+			if err != nil {
+				log.Printf("Error retriving skill for experience %s: %v", experience.ID, err)
+				c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrive skill for experience"))
+				return
+			}
+
+			for j := range skills {
+				skills[j].Image = scheme + "://" + c.Request.Host + "/uploads/skills/" + skills[j].Image
+			}
+
+			experiences[i].Skills = skills
+		}
+
 		//return success response
 		c.JSON(http.StatusOK, formatter.SuccessResponse(map[string]interface{}{
 			"experience": experiences,
@@ -218,10 +233,38 @@ func GetExperienceByID(db *sql.DB) gin.HandlerFunc {
 		}
 		experience.Image = scheme + "://" + c.Request.Host + "/uploads/experience/" + experience.Image
 
+		//get skill by experience
+		// for i, experienceSkill := range experience {
+		// 	skills, err := model.GetSkillByExperienceID(db, experience.ID)
+		// 	if err != nil {
+		// 		log.Printf("Error retriving skill for experience %s: %v", experience.ID, err)
+		// 		c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrive skill for experience"))
+		// 		return
+		// 	}
+
+		// 	for j := range skills {
+		// 		skills[j].Image = scheme + "://" + c.Request.Host + "/uploads/skills/" + skills[j].Image
+		// 	}
+
+		// 	experience.Skills = skills
+		// }
+
+		skills, err := model.GetSkillByExperienceID(db, experience.ID)
+		if err != nil {
+			log.Printf("Error retriving skill for experience %s: %v", experience.ID, err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrive skill for experience"))
+			return
+		}
+
+		for j := range skills {
+			skills[j].Image = scheme + "://" + c.Request.Host + "/uploads/skills/" + skills[j].Image
+		}
+
+		experience.Skills = skills
+
 		c.JSON(http.StatusOK, formatter.SuccessResponse(experience))
 	}
 }
-
 
 func UpdateExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
