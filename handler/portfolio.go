@@ -162,6 +162,47 @@ func GetPortfolioAndSkillsPaginated(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+func GetPortfolioAndSkillsByID(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		portfolioID := c.Param("id")
+		if portfolioID == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Portfolio ID is required"))
+			return
+		}
+
+		portfolio, err := model.GetPortfolioByID(db, portfolioID)
+		if err != nil {
+			log.Printf("Error retrieving portfolio: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve portfolio"))
+			return
+		}
+
+		skills, err := model.GetSkillsByPortfolioID(db, portfolioID)
+		if err != nil {
+			log.Printf("Error retrieving skills for portfolio %s: %v", portfolioID, err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve skills for portfolio"))
+			return
+		}
+
+		// Include server URL in the image links
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		portfolio.Image = scheme + "://" + c.Request.Host + "/uploads/portfolio/" + portfolio.Image
+		for i := range skills {
+			skills[i].Image = scheme + "://" + c.Request.Host + "/uploads/skills/" + skills[i].Image
+		}
+
+		portfolio.Skills = skills
+
+		c.JSON(http.StatusOK, formatter.SuccessResponse(map[string]interface{}{
+			"portfolio": portfolio,
+		}))
+	}
+}
+
+
 func DeleteSkillWithRelationsHandler(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !checkUserLogin(c, jwtKey, db) {

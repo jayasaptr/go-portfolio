@@ -196,6 +196,33 @@ func GetExperience(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+func GetExperienceByID(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		experienceID := c.Param("id")
+		if experienceID == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Experience ID is required"))
+			return
+		}
+
+		experience, err := model.GetExperienceID(db, experienceID)
+		if err != nil {
+			log.Printf("Error retrieving experience by ID: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve experience"))
+			return
+		}
+
+		// Include server URL in the image link
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		experience.Image = scheme + "://" + c.Request.Host + "/uploads/experience/" + experience.Image
+
+		c.JSON(http.StatusOK, formatter.SuccessResponse(experience))
+	}
+}
+
+
 func UpdateExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !checkUserLogin(c, jwtKey, db) {

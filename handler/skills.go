@@ -110,6 +110,33 @@ func GetSkill(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+func GetSkillByID(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		skillID := c.Param("id")
+		if skillID == "" {
+			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Skill ID is required"))
+			return
+		}
+
+		skill, err := model.GetSkillID(db, skillID)
+		if err != nil {
+			log.Printf("Error retrieving skill by ID: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve skill"))
+			return
+		}
+
+		// Include server URL in the image link
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		skill.Image = scheme + "://" + c.Request.Host + "/uploads/skills/" + skill.Image
+
+		c.JSON(http.StatusOK, formatter.SuccessResponse(skill))
+	}
+}
+
+
 func DeleteSkill(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		//check user login

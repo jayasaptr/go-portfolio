@@ -64,18 +64,21 @@ func main() {
 	//skills
 	r.POST("/api/v1/skills", handler.AddSkills(db, os.Getenv("JWT_SECRET")))
 	r.GET("/api/v1/skills", handler.GetSkill(db))
+	r.GET("/api/v1/skills/:id", handler.GetSkillByID(db))
 	r.PUT("/api/v1/skills/:id", handler.UpdateSkill(db, os.Getenv("JWT_SECRET")))
 	r.DELETE("/api/v1/skills/:id", handler.DeleteSkill(db, os.Getenv("JWT_SECRET")))
 
 	//portfolio
 	r.POST("/api/v1/portfolio", handler.AddPortfolioWithSkills(db, os.Getenv("JWT_SECRET")))
 	r.GET("/api/v1/portfolio", handler.GetPortfolioAndSkillsPaginated(db))
+	r.GET("/api/v1/portfolio/:id", handler.GetPortfolioAndSkillsByID(db))
 	r.DELETE("/api/v1/portfolio/:id", handler.DeletePortfolioHandler(db, os.Getenv("JWT_SECRET")))
 	r.PUT("/api/v1/portfolio/:id", handler.UpdatePortfolioHandler(db, os.Getenv("JWT_SECRET")))
 
 	//experience
 	r.POST("/api/v1/experience", handler.AddExperiance(db, os.Getenv("JWT_SECRET")))
 	r.GET("/api/v1/experience", handler.GetExperience(db))
+	r.GET("/api/v1/experience/:id", handler.GetExperienceByID(db))
 	r.PUT("/api/v1/experience/:id", handler.UpdateExperience(db, os.Getenv("JWT_SECRET")))
 	r.DELETE("/api/v1/experience/:id", handler.DeleteExperience(db, os.Getenv("JWT_SECRET")))
 
