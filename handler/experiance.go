@@ -398,12 +398,6 @@ func DeleteExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			return
 		}
 
-		skillID := c.PostForm("skill_id")
-		if skillID == "" {
-			c.JSON(http.StatusBadRequest, formatter.BadRequestResponse("Skill ID is required"))
-			return
-		}
-
 		err = model.DeleteExperienceAndRelations(db, experienceID)
 		if err != nil {
 			log.Printf("Error deleting skill with relations: %v", err)
