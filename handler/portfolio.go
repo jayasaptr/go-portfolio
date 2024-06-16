@@ -40,6 +40,7 @@ func AddPortfolioWithSkills(db *sql.DB, jwtKey string) gin.HandlerFunc {
 
 		// Parse form data
 		title := c.PostForm("title")
+		subtitle := c.PostForm("subtitle")
 		content := c.PostForm("content")
 		file, err := c.FormFile("image")
 		if err != nil {
@@ -75,6 +76,7 @@ func AddPortfolioWithSkills(db *sql.DB, jwtKey string) gin.HandlerFunc {
 		portfolio := model.Portfolio{
 			ID:          portfolioID,
 			Title:       title,
+			Subtitle:    subtitle,
 			Image:       newFilename,
 			Content:     content,
 			Status:      status,
@@ -104,11 +106,12 @@ func AddPortfolioWithSkills(db *sql.DB, jwtKey string) gin.HandlerFunc {
 
 		// Return success response
 		c.JSON(http.StatusOK, formatter.SuccessResponse(map[string]interface{}{
-			"id":      portfolio.ID,
-			"title":   portfolio.Title,
-			"content": portfolio.Content,
-			"image":   newFilename,
-			"skills":  skillIDs,
+			"id":       portfolio.ID,
+			"title":    portfolio.Title,
+			"subtitle": portfolio.Subtitle,
+			"content":  portfolio.Content,
+			"image":    newFilename,
+			"skills":   skillIDs,
 		}))
 	}
 }
@@ -201,7 +204,6 @@ func GetPortfolioAndSkillsByID(db *sql.DB) gin.HandlerFunc {
 		}))
 	}
 }
-
 
 func DeleteSkillWithRelationsHandler(db *sql.DB, jwtKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
