@@ -85,8 +85,8 @@ func main() {
 	r.PUT("/api/v1/portfolio-skill/:id", handler.AddSkillsToPortfolio(db, os.Getenv("JWT_SECRET")))
 	r.PUT("/api/v1/experience-skill/:id", handler.AddSkillsToExperience(db, os.Getenv("JWT_SECRET")))
 
-	r.PUT("/api/v1/portfolio-skill/:id", handler.DeleteSkillWithRelationsHandler(db, os.Getenv("JWT_SECRET")))
-	r.PUT("/api/v1/experience-skill/:id", handler.DeleteSkillExperienceWithRelationsHandler(db, os.Getenv("JWT_SECRET")))
+	r.POST("/api/v1/portfolio-skill/:id", handler.DeleteSkillWithRelationsHandler(db, os.Getenv("JWT_SECRET")))
+	r.POST("/api/v1/experience-skill/:id", handler.DeleteSkillExperienceWithRelationsHandler(db, os.Getenv("JWT_SECRET")))
 
 	// Serve static files for images
 	r.Static("/uploads", "./uploads")
