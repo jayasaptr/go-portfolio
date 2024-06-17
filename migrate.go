@@ -61,5 +61,13 @@ func migrate(db *sql.DB) (sql.Result, error) {
 		FOREIGN KEY (skill_id) REFERENCES skills(id) ON UPDATE CASCADE ON DELETE RESTRICT,
 		PRIMARY KEY (portfolio_id, skill_id) 
 	);
+
+	CREATE TABLE IF NOT EXISTS portfolio_experience (
+		portfolio_id VARCHAR(36) NOT NULL,
+		experiance_id VARCHAR(36) NOT NULL,
+		FOREIGN KEY (portfolio_id) REFERENCES portfolio(id),
+		FOREIGN KEY (experiance_id) REFERENCES experiance(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+		PRIMARY KEY (portfolio_id, experiance_id) 
+	);
 	`)
 }

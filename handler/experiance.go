@@ -393,7 +393,7 @@ func DeleteExperience(db *sql.DB, jwtKey string) gin.HandlerFunc {
 
 		experience, err := model.GetExperienceID(db, experienceID)
 		if err != nil {
-			log.Printf("Err retriveing experience: %v\n", err)
+			log.Printf("Err retriveing experiences: %v\n", err)
 			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve experience"))
 			return
 		}

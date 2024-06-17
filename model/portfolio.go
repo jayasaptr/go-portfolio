@@ -7,14 +7,15 @@ import (
 )
 
 type Portfolio struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Subtitle    string    `json:"subtitle"`
-	Image       string    `json:"image"`
-	Content     string    `json:"content"`
-	Status      string    `json:"status"`
-	DateProject time.Time `json:"date_project"`
-	Skills      []Skills  `json:"skills"`
+	ID          string      `json:"id"`
+	Title       string      `json:"title"`
+	Subtitle    string      `json:"subtitle"`
+	Image       string      `json:"image"`
+	Content     string      `json:"content"`
+	Status      string      `json:"status"`
+	DateProject time.Time   `json:"date_project"`
+	Skills      []Skills    `json:"skills"`
+	Experience  *Experience `json:"experience"`
 }
 
 type PortfolioSkill struct {
@@ -56,6 +57,75 @@ func (p *Portfolio) AddSkills(db *sql.DB, skillIDs []string) error {
 		return err
 	}
 	return nil
+}
+
+// add experience
+func (p *Portfolio) AddExperience(db *sql.DB, experienceID string) error {
+	// Start a transaction
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		return err
+	}
+
+	// Prepare the SQL statement for inserting portfolio-experience relationships
+	stmt, err := tx.Prepare("INSERT INTO portfolio_experience (portfolio_id, experiance_id) VALUES ($1, $2)")
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing SQL statement: %v", err)
+		return err
+	}
+	defer stmt.Close()
+
+	// Execute the statement
+	_, err = stmt.Exec(p.ID, experienceID)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error executing SQL statement: %v", err)
+		return err
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		return err
+	}
+	return nil
+}
+
+// update experience
+func (p *Portfolio) UpdateExperiencePortfolio(db *sql.DB, experienceID string) error {
+	// Start a transaction
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		return err
+	}
+
+	// Prepare the SQL statement for inserting portfolio-skill relationships
+	stmt, err := tx.Prepare("UPDATE portfolio_experience SET experiance_id = $2 WHERE portfolio_id = $1")
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error preparing SQL statement: %v", err)
+		return err
+	}
+	defer stmt.Close()
+
+	// Execute the statement for each skill ID
+	_, err = stmt.Exec(p.ID, experienceID)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error executing SQL statement: %v", err)
+		return err
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		return err
+	}
+	return nil
+
 }
 
 // Function to insert a new portfolio into the database
@@ -153,7 +223,17 @@ func GetPortfolioByID(db *sql.DB, portfolioID string) (*Portfolio, error) {
 		log.Printf("Error retrieving skills for portfolio %s: %v", portfolioID, err)
 		return nil, err
 	}
+
+	// Retrieve associated experience
+	experience, err := GetExperienceByPortfolioID(db, portfolioID)
+	if err != nil {
+		log.Printf("Error retrieving experience for portfolio %s: %v", portfolioID, err)
+		return nil, err
+
+	}
+
 	portfolio.Skills = skills
+	portfolio.Experience = experience
 
 	return &portfolio, nil
 }
@@ -171,6 +251,14 @@ func DeletePortfolioAndRelations(db *sql.DB, portfolioID string) error {
 	if _, err := tx.Exec(deleteRelationsQuery, portfolioID); err != nil {
 		tx.Rollback()
 		log.Printf("Error deleting portfolio-skill relations: %v", err)
+		return err
+	}
+
+	// Delete relations from portfolio_experience table
+	deleteExperienceRelationsQuery := `DELETE FROM portfolio_experience WHERE portfolio_id = $1`
+	if _, err := tx.Exec(deleteExperienceRelationsQuery, portfolioID); err != nil {
+		tx.Rollback()
+		log.Printf("Error deleting portfolio-experience relations: %v", err)
 		return err
 	}
 
@@ -217,4 +305,31 @@ func GetSkillsByPortfolioID(db *sql.DB, portfolioID string) ([]Skills, error) {
 	}
 
 	return skills, nil
+}
+
+// get experience by portfolio id
+func GetExperienceByPortfolioID(db *sql.DB, portfolioID string) (*Experience, error) {
+	query := `SELECT experiance.id, experiance.company_name, experiance.position, experiance.image, experiance.start_date, experiance.end_date, experiance.location FROM experiance INNER JOIN portfolio_experience ON experiance.id = portfolio_experience.experiance_id WHERE portfolio_experience.portfolio_id = $1`
+
+	rows, err := db.Query(query, portfolioID)
+	if err != nil {
+		log.Printf("Error querying experience by portfolio ID: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var experience Experience
+	for rows.Next() {
+		if err := rows.Scan(&experience.ID, &experience.CompanyName, &experience.Position, &experience.Image, &experience.StartDate, &experience.EndDate, &experience.Location); err != nil {
+			log.Printf("Error scanning experience: %v", err)
+			return nil, err
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Error during experience rows iteration: %v", err)
+		return nil, err
+	}
+
+	return &experience, nil
 }

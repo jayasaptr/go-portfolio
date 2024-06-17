@@ -104,14 +104,24 @@ func AddPortfolioWithSkills(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			return
 		}
 
+		//add experience
+		experienceID := c.PostForm("experience_id")
+
+		if err := portfolio.AddExperience(db, experienceID); err != nil {
+			log.Printf("Error adding experience to portfolio: %v", err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to add experience to portfolio"))
+			return
+		}
+
 		// Return success response
 		c.JSON(http.StatusOK, formatter.SuccessResponse(map[string]interface{}{
-			"id":       portfolio.ID,
-			"title":    portfolio.Title,
-			"subtitle": portfolio.Subtitle,
-			"content":  portfolio.Content,
-			"image":    newFilename,
-			"skills":   skillIDs,
+			"id":           portfolio.ID,
+			"title":        portfolio.Title,
+			"subtitle":     portfolio.Subtitle,
+			"content":      portfolio.Content,
+			"image":        newFilename,
+			"skills":       skillIDs,
+			"date_project": dateProject,
 		}))
 	}
 }
@@ -151,6 +161,29 @@ func GetPortfolioAndSkillsPaginated(db *sql.DB) gin.HandlerFunc {
 			}
 
 			portfolios[i].Skills = skills
+		}
+
+		// retrieve experience for each portfolio
+		for i, portfolio := range portfolios {
+			experience, err := model.GetExperienceByPortfolioID(db, portfolio.ID)
+
+			if err != nil {
+				log.Printf("Error retrieving experience for portfolio %s: %v", portfolio.ID, err)
+				c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve experience for portfolio"))
+				return
+			}
+
+			// Append the server path to each experience image
+			experience.Image = scheme + "://" + c.Request.Host + "/uploads/experience/" + experience.Image
+
+			portfolios[i].Experience = experience
+		}
+
+		//cek jika id experience == "" maka hapus key experience
+		for i, portfolio := range portfolios {
+			if portfolio.Experience.ID == "" {
+				portfolios[i].Experience = nil
+			}
 		}
 
 		// Append the server path to each portfolio's image
@@ -198,6 +231,24 @@ func GetPortfolioAndSkillsByID(db *sql.DB) gin.HandlerFunc {
 		}
 
 		portfolio.Skills = skills
+
+		// Retrieve experience for the portfolio
+		experience, err := model.GetExperienceByPortfolioID(db, portfolioID)
+		if err != nil {
+			log.Printf("Error retrieving experience for portfolio %s: %v", portfolioID, err)
+			c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to retrieve experience for portfolio"))
+			return
+		}
+
+		if experience.ID == "" {
+			c.JSON(http.StatusOK, formatter.SuccessResponse(map[string]interface{}{
+				"portfolio": portfolio,
+			}))
+			return
+		}
+
+		// Include server URL in the experience image link
+		experience.Image = scheme + "://" + c.Request.Host + "/uploads/experience/" + experience.Image
 
 		c.JSON(http.StatusOK, formatter.SuccessResponse(map[string]interface{}{
 			"portfolio": portfolio,
@@ -358,6 +409,16 @@ func UpdatePortfolioHandler(db *sql.DB, jwtKey string) gin.HandlerFunc {
 			}
 			if dateProject != existingPortfolio.DateProject {
 				existingPortfolio.DateProject = dateProject
+			}
+		}
+
+		// update experience
+		experienceID := c.PostForm("experience_id")
+		if experienceID != "" {
+			if err := existingPortfolio.UpdateExperiencePortfolio(db, experienceID); err != nil {
+				log.Printf("Error adding experience to portfolio: %v", err)
+				c.JSON(http.StatusInternalServerError, formatter.InternalServerErrorResponse("Failed to add experience to portfolio"))
+				return
 			}
 		}
 
