@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"portfolio/handler"
@@ -10,7 +11,23 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/ssh"
 )
+
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusOK)
+			return
+		}
+
+		c.Next()
+	}
+}
 
 func main() {
 	// Muat file .env
@@ -19,6 +36,23 @@ func main() {
 		fmt.Printf("Error loading env file %v\n", err)
 		os.Exit(1)
 	}
+
+	// Konfigurasi koneksi SSH
+	config := &ssh.ClientConfig{
+		User: os.Getenv("HOST_USER"),
+		Auth: []ssh.AuthMethod{
+
+			ssh.Password(os.Getenv("HOST_PASSWORD")),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	// Buat koneksi SSH ke server
+	conn, err := ssh.Dial("tcp", os.Getenv("HOST_SERVER"), config)
+	if err != nil {
+		log.Fatalf("Gagal terhubung ke server SSH: %v", err)
+	}
+	defer conn.Close()
 
 	connStr, err := loadPostgresConfig()
 	if err != nil {
@@ -44,17 +78,7 @@ func main() {
 	}
 
 	r := gin.Default()
-
-	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusOK)
-			return
-		}
-		c.Next()
-	})
+	r.Use(CORSMiddleware())
 
 	r.POST("/api/v1/auth/register", handler.RegisterAuth(db))
 	r.POST("/api/v1/auth/login", handler.LoginAuth(db, os.Getenv("JWT_SECRET")))
